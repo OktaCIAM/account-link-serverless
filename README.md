@@ -1,8 +1,13 @@
 # Okta Account Claiming / Linking
 
-This is an example application of how to perform account claiming with Okta.
+This application allows two disparate account, an pre-existing account on a Okta Hub IdP and one on an external IdP, to be linked through verifying account ownership on the Hub side.
 
-This requires a Spoke tenant and a Org2Org pre-configured.
+This use-case is primarily useful in various situations:
+- Just-in-Time creation is not allowed on the Hub
+- The external IdP has matching attributes
+- Factor verification is required to link the accounts
+
+While the application is simple to standup, this does require some configuration on the Spoke tenant and Hub tenants.
 
 ## Usage
 
