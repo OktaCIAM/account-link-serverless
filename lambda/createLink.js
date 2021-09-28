@@ -20,8 +20,8 @@ module.exports.handler = async (event) => {
 
     const spokeIdTokenRaw = JSON.parse(event.body).id_token;
     const spokeIdTokenParse = jwtDecode(spokeIdTokenRaw);
-    const { seiAttribute } = spokeIdTokenParse;
-    currentUser.profile.seiAttribute = seiAttribute;
+    const { matchingAttribute } = spokeIdTokenParse;
+    currentUser.profile.matchingAttribute = matchingAttribute;
 
     await currentUser.update();
     // Redirect to Bookmark URL
