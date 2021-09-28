@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" integrity="sha384-9aIt2nRpC12Uk9gS9baDl411NQApFmC26EwAOH8WgZl5MYYxFfc+NcPb1dKGj7Sk" crossorigin="anonymous">
+    <link rel="stylesheet" href="/assets/app.css">
+    <title>Account Linker</title>
+    <!-- widget stuff here -->
+    <script src="https://global.oktacdn.com/okta-signin-widget/5.9.4/js/okta-sign-in.min.js" type="text/javascript"></script>
+    <link href="https://global.oktacdn.com/okta-signin-widget/5.9.4/css/okta-sign-in.min.css" type="text/css" rel="stylesheet"/>
+  </head>
+  <body>
+    <div class="main container-fluid">
+      <div class="row">
+        <div class="col-lg-5 panel panel--left">
+          <div class="about">
+            <img src="assets/link-image.svg">
+            <h2 class="text-center">Let's Link Your Account.</h1>
+            <p class="text-center">Sign in and verify your account to link this account going forward.</p>
+          </div>
+        </div>
+        <div class="col-lg-7 panel panel--right">
+          <div class="login">
+            <div id="messageBox" class="alert alert-primary" role="alert"></div>
+            <div id="okta-login-container"></div>
+          </div>
+        </div>
+      <!-- where the sign-in form will be displayed -->
+      </div>
+      <button id="logout" class="button" onclick="logout()" style="display: none">Logout</button>
+    </div>
+
+    <script type="text/javascript">
+        function setMessage (message) {
+          document.getElementById("messageBox").style.display = 'block';
+          document.getElementById("messageBox").innerHTML = message;
+        }
+
+        function hideMessage (message) {
+          document.getElementById("messageBox").style.display = 'none';
+        }
+
+        const main = async () => {
+            try {
+                const queryString = window.location.search;
+                const urlParams = new URLSearchParams(queryString);
+                let configuration;
+                const spokeConfiguration = {
+                    baseUrl: "https://spoke-tenant.oktapreview.com/",
+                    clientId: "client_id",
+                    redirectUri: window.location.origin,
+                    authParams: {
+                        issuer: "https://spoke-tenant.oktapreview.com/oauth2/aus11gn19g5Hst91j0h8"
+                    }
+                };
+
+                const hubConfiguraton = {
+                    baseUrl: "https://hub.okta.com/",
+                    clientId: "client_id",
+                    redirectUri: window.location.origin,
+                    authParams: {
+                        issuer: "https://hub-tenant.okta.com/oauth2/default"
+                    },
+                    i18n: {
+                      // Overriding English properties
+                      'en': {
+                        'primaryauth.title': 'Login',
+                      }
+                    }
+                };
+
+                // OIDC Compliant Authorize Init
+                // Alternatively, we can send the ID Token with Okta Simplified - Implicit
+                  const oktaSignIn = {
+                      spoke: new OktaSignIn(spokeConfiguration),
+                      hub: new OktaSignIn(hubConfiguraton)
+                  };
+
+                  // Get a token through session validaton
+                  // Do not store token
+                  setMessage('🔍 Fetching associated account from identity provider...');
+                  let response = await oktaSignIn.spoke.authClient.token.getWithoutPrompt({
+                      responseType: 'id_token', // or array of types,
+                      scopes: ['profile', 'openid']
+                  });
+                  const spokeTokens = response.tokens;
+                  console.log(spokeTokens)
+
+                  hideMessage();
+                  // Validate User Account by Loggin In
+                  const hubTokens = await oktaSignIn.hub.showSignInToGetTokens({
+                      el: '#okta-login-container'
+                  });
+
+                  oktaSignIn.hub.remove();
+                  setMessage('🔗 Linking accounts....');
+
+                  const createLinkUrl = 'CREATE_LINK_ENDPOINT';
+                  response = await fetch(createLinkUrl, {
+                      method: 'POST',
+                      mode: 'cors',
+                      headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${hubTokens.accessToken.accessToken}`
+                      },
+                      // We send the ID Token from the Spoke that we can verify that it hasn't been
+                      // tampered with, which will also contain the Linking Attribute
+                      body: JSON.stringify({
+                        id_token: spokeTokens.idToken.idToken // raw id token
+                      })
+                  });
+
+                  if (response.status === 200) {
+                    setMessage('✅ Linked associated account...redirecting to destination in 2 seconds');
+                    setTimeout(() => {
+                      // This is where the env needs to be ${SAML_DEEP_LINK}
+                      // Send the user back from where they initially came from
+                      window.location.href = "SAML_DEEP_LINK";
+                    }, 2000);
+                  } else {
+                    throw new Error("⚠️ Failed to update user...", response.body);
+                  }
+            } catch (err) {
+                setMessage(err);
+            }
+        }
+
+        main();
+      function logout() {
+        oktaSignIn.authClient.signOut();
+        location.reload();
+      }
+    </script>
+  </body>
+</html>
